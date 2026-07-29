@@ -1,7 +1,7 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    id("org.springframework.boot") version "3.1.5"
+    id("org.springframework.boot") version "3.3.13"
     id("io.spring.dependency-management") version "1.1.3"
     kotlin("jvm") version "1.8.22"
     kotlin("plugin.spring") version "1.8.22"
@@ -39,6 +39,9 @@ dependencies {
     // Thymeleaf extras (SSTI potential)
     implementation("org.thymeleaf.extras:thymeleaf-extras-springsecurity6")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    constraints {
+        implementation("org.apache.tomcat.embed:tomcat-embed-core:10.1.40")
+    }
 }
 
 tasks.withType<KotlinCompile> {
