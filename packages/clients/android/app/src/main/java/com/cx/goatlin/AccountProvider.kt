@@ -46,8 +46,15 @@ class AccountProvider : ContentProvider() {
             else -> throw IllegalArgumentException("Unknown URI")
         }
 
+        // Defense in depth: Filter out password column from projection to prevent
+        // accidental exposure of credentials even if provider is misconfigured
+        val safeProjection = projection?.filter { column ->
+            !column.equals("password", ignoreCase = true) &&
+            !column.contains("password", ignoreCase = true)
+        }?.toTypedArray()
+
         val cursor = queryBuilder.query(this.database.readableDatabase,
-                projection, selection, selectionArgs, null, null,
+                safeProjection, selection, selectionArgs, null, null,
                 sortOrder)
         cursor.setNotificationUri(context.contentResolver,
                 uri)
