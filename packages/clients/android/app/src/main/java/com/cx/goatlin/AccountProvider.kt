@@ -32,30 +32,57 @@ class AccountProvider : ContentProvider() {
 
     override fun query(uri: Uri, projection: Array<String>?, selection: String?,
                        selectionArgs: Array<String>?, sortOrder: String?): Cursor? {
-        //return this.database.listAccounts()
+        // Verify caller is from the same application (defense-in-depth)
+        val callingPackage = callingPackage
+        if (callingPackage != null && callingPackage != context?.packageName) {
+            throw SecurityException("Access denied: AccountProvider is private to this application")
+        }
+
+        // Restrict projection to prevent password exposure in collection queries
+        val safeProjection = if (projection == null) {
+            // Default projection excludes password for collection queries
+            arrayOf("id AS _id", "username")
+        } else {
+            // Filter out password column from requested projection for collection queries
+            projection.filter { it != "password" && !it.contains("password", ignoreCase = true) }
+                    .toTypedArray()
+        }
+
         val queryBuilder = SQLiteQueryBuilder()
         queryBuilder.tables = ACCOUNTS_TABLE
 
         val uriType = sURIMatcher.match(uri)
 
         when (uriType) {
-            ACCOUNTS_ID -> queryBuilder.appendWhere(ACCOUNTS_ID.toString() + "="
-                    + uri.lastPathSegment)
+            ACCOUNTS_ID -> {
+                queryBuilder.appendWhere("id = " + uri.lastPathSegment)
+                // For specific account queries, allow full projection including password
+                // since this is used internally by the app for authentication
+                val cursor = queryBuilder.query(this.database.readableDatabase,
+                        projection, selection, selectionArgs, null, null,
+                        sortOrder)
+                cursor.setNotificationUri(context?.contentResolver, uri)
+                return cursor
+            }
             ACCOUNTS -> {
+                // For collection queries, use restricted projection
+                val cursor = queryBuilder.query(this.database.readableDatabase,
+                        safeProjection, selection, selectionArgs, null, null,
+                        sortOrder)
+                cursor.setNotificationUri(context?.contentResolver, uri)
+                return cursor
             }
             else -> throw IllegalArgumentException("Unknown URI")
         }
-
-        val cursor = queryBuilder.query(this.database.readableDatabase,
-                projection, selection, selectionArgs, null, null,
-                sortOrder)
-        cursor.setNotificationUri(context.contentResolver,
-                uri)
-        return cursor
-
     }
 
-    override fun insert(uri: Uri, values: ContentValues): Uri? {
+    override fun insert(uri: Uri, values: ContentValues?): Uri? {
+        // Verify caller is from the same application (defense-in-depth)
+        val callingPackage = callingPackage
+        if (callingPackage != null && callingPackage != context?.packageName) {
+            throw SecurityException("Access denied: AccountProvider is private to this application")
+        }
+
         val uriType = sURIMatcher.match(uri)
 
         val sqlDB = this.database.writableDatabase
@@ -65,7 +92,7 @@ class AccountProvider : ContentProvider() {
             ACCOUNTS -> id = sqlDB.insert(ACCOUNTS_TABLE, null, values)
             else -> throw IllegalArgumentException("Unknown URI: " + uri)
         }
-        context.contentResolver.notifyChange(uri, null)
+        context?.contentResolver?.notifyChange(uri, null)
         return Uri.parse(ACCOUNTS_TABLE + "/" + id)
     }
 
