@@ -49,7 +49,7 @@
             android:name="com.cx.goatlin.AccountProvider"
             android:authorities="com.cx.goatlin.accounts"
             android:enabled="true"
-            android:exported="true" />
+            android:exported="false" />
         <provider
             android:name="com.cx.goatlin.NotesProvider"
             android:authorities="com.cx.goatlin.notes"
